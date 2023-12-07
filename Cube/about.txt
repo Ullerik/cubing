@@ -1,0 +1,10 @@
+This folder contains a cube implementation and supporting functions
+
+
+
+How to import:
+keep folder in the same folder as other projects, then run the following
+%run ../cube/Cube.ipynb
+That is, if a is the main folder and contains the cube-folder and the project folder,
+then in the project folder have a file where you run the thing above.
+

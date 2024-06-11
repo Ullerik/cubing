@@ -230,7 +230,6 @@ def case4(clock, flip = True):
             # 4-10, 5-11, 6-8, 7-9, so if our edge is 4, we need to check if 10 and the one anticlockwise from that one is the same
 
             if clock.clocks[8 + ((i+2)%4)] == clock.clocks[8 + ((i+3)%4)]:
-                print(flip, 4+i, 8 + ((i+2)%4), 8 + ((i+3)%4))
                 if not flip:
                     clock.y2() # we need to do a y2 to get back to the original state
                 return True
@@ -261,6 +260,24 @@ def case6(clock):
                 return True
     return False
 
+def case7(clock, flip = True):
+    # u = c & (U-C+D) + (ul-l) + (dr-r) = (u-c+d) + (UL-L) + (DR-R) (capital letters front side and small letters back side, split by a y2)
+    c = clock.clocks
+    for i in range(4):
+        if c[13] == c[8+(-i)%4]:
+            # left hand side: (U - C + D) + (l - ul) + (r - dr)
+            lhs = (c[4+i] - c[12] + c[4+(i+2)%4]) + (c[8+(-i+1)%4] - c[(-i)%4]) + (c[8+(-i+3)%4] - c[(2-i)%4])
+            # right hand side: (12-d) + (UL - L) + (DR - R)
+            rhs = (12-c[8+(2-i)%4]) + (c[(3+i)%4] - c[4+(3+i)%4]) + (c[(1+i)%4] - c[4+(1+i)%4])
+            if lhs%12 == rhs%12:
+                if not flip:
+                    clock.y2()
+                return True
+    if flip:
+        clock.y2()
+        return case7(clock, False)
+    return False
+
 # GUI/app
 
 import tkinter as tk
@@ -288,14 +305,14 @@ app = tk.Tk()
 app.title("Epic Clock Scrambler")
 
 # Add explanation label
-explanation_label = tk.Label(app, text="Select the cases you want to test for and click 'Scramble'. \nRed means it does not work atm:", fg="black", font=("Arial", font_size))
+explanation_label = tk.Label(app, text="Select the cases you want to test for and click 'Generate Scramble':", fg="black", font=("Arial", font_size))
 explanation_label.pack()
 
-check_vars = [tk.BooleanVar() for _ in range(6)]
-case_functions = [case1, case2, case3, case4, case5, case6]
-case_names = ["L shape", "CE & EE (opposite sides)", "L=U & C=D (same side)", "C=D & R=D (opposite side)", "Line shape", "C=D & C=D (opposite sides)"]
+check_vars = [tk.BooleanVar() for _ in range(7)]
+case_functions = [case1, case2, case3, case4, case5, case6, case7]
+case_names = ["L shape", "CE & EE (opposite sides)", "L=U & C=D (same side)", "C=D & R=D (opposite side)", "Line shape", "C=D & C=D (opposite sides)", "Slash move skip"]
 
-for i in range(6):
+for i in range(7):
     chk = tk.Checkbutton(app, text=f"Case {i+1}: {case_names[i]}", variable=check_vars[i], fg="black", font=("Arial", font_size-4))
     chk.pack(anchor='w')
 

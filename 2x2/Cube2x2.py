@@ -122,6 +122,7 @@ def gen_all_algs(depth, print_progress = False):
             print(f"Genning algs of length {i}...")
         ai = alg_index(i)
         start_alg = str(ai)
+        all_algs.append(str(ai))
         ai.increment()
         while str(ai) != start_alg:
             all_algs.append(str(ai))

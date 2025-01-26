@@ -1,0 +1,126 @@
+
+
+So my implementation has different parts to it, and is built on stuff I made earlier.
+I have almost everything in notebook because I like how experimental it is, but everything is python.
+
+First, the cube representation:
+You find it if you go one folder out and into the "Cube" folder
+Some noteable stuff: The cube is just an array, so a solved cube is [1,1,1,1,1,1,1,1,1,2,2,2,2,2...,6,6,6] (9 of each), and the moves just move each sticker to the correct place.
+To create a cube, do: cube = Cube(mode), where mode is set to "normal", meaning the array above, if it doesn't recognize the thing.
+You can however do mode="id" to get [0,1,2,3,...], "LL"  if you want 0 for every top layer sticker, "PLL" for only the side of the top layer, etc.
+For CP, I have a seperate mode "cp" which sets all edge and center stickers to 0, and then each corner gets its own ID. So for example DFL has 1 on all stickers.
+For moves, you can do cube.apply_moves("R U...").
+You can also do cube.apply_int_moves(array), which does the same but takes in an array where each number translates to a move (0=R, 1=R2, 2=R', 3=L, ...)
+Finally, I also have cube.plot(). As long as you have colors 0-6 you're good to plot, but more and it will crash.
+You can however do print(cube) and a representation like this will show up:
+       5 5 5
+       5 5 5
+       5 5 5
+4 4 4  1 1 1  2 2 2  3 3 3
+4 4 4  1 1 1  2 2 2  3 3 3
+4 4 4  1 1 1  2 2 2  3 3 3
+       6 6 6
+       6 6 6
+       6 6 6
+	   
+	   
+	   
+Next thing now is my alg genning thing.
+I have a quite cool thing that uses "move transition tables".
+Essentially, instead of just giving a moveset, you can give an instruction of what chains of moves can be used. 
+I have used this to find some cool algs, such as this Gc-perm: r' F R F' U2 M' U' R U r' U2 r U R'
+The idea is that the exponential rate the number of algs increase makes it harder to search for things. 
+But instead of searching with all moves you feel like you can consider at all times, instead just consider the moves that seems viable at the time.
+For example, from homegrip you may say you can do R, R', U, U2, U', F, F'
+However, applying an R means your grip is now also in an R away from homegrip.
+From here, R is no longer that natural, but something like R2(R2'), R', U, U2, U', F' is viable.
+If you instead do an R', might lead you to be able to do these moves: R, R2, U, U2, U', F, F2, F'
+This can be expressed in the following move transition table:
+
+move_transition = np.array([ 
+#   [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 0. regrip
+#   [ R,R2,R', L,L2,L', r,r2,r', l,l2,l', M,M2,M', U,U2,U', D,D2,D', u,u2,u', d,d2,d', E,E2,E', F,F2,F', B,B2,B', f,f2,f', b,b2,b', S,S2,S'],
+    [ 2, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 1. homegrip
+    [ 0, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 2. R from homegrip
+    [ 1, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 3. R' from homegrip
+])
+
+The table works as follows:
+each row represents a "move state". You may think of it as a grip, although it can be more versitile than that, allowing for for example max one move of a certain type.
+Each column represents a move, so the first (column 0) means R.
+There is always a 0 row, which you can think of as the regrip row. I could work around it, but I found it easier to just include it.
+In the other rows, 0 represents a "regrip" (which again isn't fully accurate), while the non-zero elements tells the program that that move is valid, and which row you're sent to if you apply that move.
+For example, the first row represents homegrip and starts with [2,0,3...]. This means that the first move, R, sends you to the 2nd row, the second move we have defined as not valid, so R2 is not available, and the third move, R', sends you to the 3rd row.
+
+It's not very important for you to know all these details, but it could be fun to play around with it for you if you're planning on genning algs and want them to be fingertrickable.
+Otherwise, say you want to include all RU moves, for example for 2gen, then you could simply go with this one, where any R and any U moves send you to the same "grip":
+move_transition = np.array([ 
+#   [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44],
+    [ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 0. regrip
+#   [ R,R2,R', L,L2,L', r,r2,r', l,l2,l', M,M2,M', U,U2,U', D,D2,D', u,u2,u', d,d2,d', E,E2,E', F,F2,F', B,B2,B', f,f2,f', b,b2,b', S,S2,S'],
+    [ 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], # 1. RU turning
+])	
+
+So, moving on, I have the file gripbased.ipynb
+The name is kinda misleading when I think about it, I might change it to alg_genning.ipynb or something idk.
+
+Anyway, that just defines all the stuff for alg genning that I've needed so far, although it's missing a few things that I should add for it to be more generic.
+For genning algs, you have access to this function:
+full_algs = gen_full_algs(length, mode, move_transition, start_grips, skip_U, prnt, categorize, categorize_mode, return_full_alg_list)
+
+Example would be:
+length=12, 
+mode="LL", 
+move_transition=move_transition, 
+start_grips=np.array([1]), 
+skip_U=True, 
+prnt=True, 
+categorize=True, 
+categorize_mode="PLL", 
+return_full_alg_list=True
+
+length is obvious. Like batch solver, it uses a search and a prune, but here it just splits it in two. If odd, then it does one more on prune than search (11 => search=5, prune=6).
+mode tells you which mode it should use to gen algs. What the program does is it searches for solutions that solve the cube from the solved position into the solved position. 
+Normally, this doesn't make sense, but I use it to search for algs where the states are equal. So with mode="LL", the cube will have the whole top layer "grayed out", or set to 0.
+So if it finds a sune, R U R' U R U2 R', that does nothing to the LL state in that mode since it's both the start and solved position.
+If you set categorize to False, then it will return all the algs it finds.
+If you set categorize to True, you need to set a categorize_mode as well. Here, I set PLL, which is where the top side has the normal color (5), while the side around is set to 0.
+This means that it will make a dictionary where the states with different PLLs are seen as equal, so you will end up finding OLLs. If you use categorize, you will get a dict only.
+However, if you also set return_full_alg_list=True, then you will also get the list of all algs, so 2 outputs instead of 1.
+move_transition would need to be defined, but say we use the first I defined above.
+Then you also have the choice of start grips. start_grips=np.array([1]) works fine here since it's homegrip, but we could do start_grips=np.array([1,2]), if we are fine with regripping to thumb on top before for example.
+skip_U is nice when looking at LL algs. No need to find algs that start/end with a U move. R U R' U R U2 R' and U R U R' U R U2 R' is essentially the same, and not using the U makes it easier.
+Since the function can take a while to run for bigger algsets/advanced movesets/etc., I have included prnt=True/False. I recommend setting it to True, although for small algsets I think it might crash due to some weird division stuff.
+Anyways, its a cool way to keep track of how far the program has run. It gives you a message for every 10% done when genning the pruning table, every 10% when genning the algs, and every 10% when categorizing.
+Note: especially for the "full alg" genning, the search is not stable. So the first 10% might take 1 minute, then the next 40% can take 20 sec each, etc. I think this happens because the search algs are in order of when they were genned, and some starts will naturally give more finishes, which overall takes longer to add. 
+
+I think the only thing this is missing is to add a setup/scramble as well. I think it makes more sense than batch solver with genning OLL algs for example, but if I want to gen Winter Variation algs I don't have that ability yet (should be easy tho).
+
+
+For the final section, there's some stuff:
+I have two functions at the end of gripbased.ipynb: generic_solver_setup() and generic_solver()
+The first takes in a mode, a search depth and a table(prune) depth, move transition, start grip, skip_U and prnt.
+
+So for example, if you want a cross solver, you can do:
+generic_search_algs, generic_table = generic_solver_setup(mode="cross", search_depth=3, table_depth=4, move_transition=move_transition, start_grips=np.array([1]), skip_U=True, prnt=True)
+note that move_transition should include all moves then, probably similar to the RU-table I made above.
+
+Then if you have a specific scramble, you can call the solver with the output you got from the setup:
+generic_solver(scramble= "...", mode="cross", search_algs = generic_search_algs, table = generic_table, string_alg = True)
+
+I think this mostly makes sense it itself, but it returns the first solution it finds. string_alg = True gives you a readable alg as output, if not it returns the integer array representation of the alg.
+
+I have made another version of this that solves CP as well in CEOR.ipynb.
+Exactly the same, but different names. Setup:
+mode = "FB" # First Block
+search_depth = 3
+table_depth = 3
+search_algs_CPFB, table_CPFB = CP_solver_setup(mode, search_depth, table_depth, move_transition=move_transition_CPFB, start_grips=np.array([1]), skip_U=True, prnt=True)
+
+Solve:
+solve = CP_solver(scramble, mode, search_algs_CPFB, table_CPFB, string_alg = True)
+
+All it does is make a cube parallel to the one you're solving. So if mode = "FB", then it also creates a CP cube, which I described above.
+It scrambles both cubes accoding to the scramble.
+Next, it just searches for solutions on the cube you had, so FB. If it finds a solution, it applies it on the FB cube as well and just checks if the resulting CP case is equal to one of the 120 possible ones (which I've just brute forced RU moves to find, which takes approximately no time and is only done once when you start the program.)
